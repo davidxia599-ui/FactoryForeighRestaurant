@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
+import ReportPurchaseDetails from '../components/report/ReportPurchaseDetails.vue'
 import { useTenant } from '../composables/useTenant'
 import { getMonthlyReport } from '../api/report'
 import { formatCurrency } from '../utils/currency'
@@ -11,12 +12,14 @@ const { t } = useI18n()
 const { hasTenant } = useTenant()
 
 const loading = ref(false)
+const exporting = ref(false)
 const report = ref<MonthlyReport | null>(null)
 const selectedMonth = ref(new Date().toISOString().substring(0, 7))
 
 async function fetchReport() {
   if (!hasTenant.value) return
   loading.value = true
+  report.value = null
   try {
     report.value = await getMonthlyReport(selectedMonth.value)
   } catch {
@@ -28,6 +31,42 @@ async function fetchReport() {
 
 function handleMonthChange() {
   fetchReport()
+}
+
+async function handleExport() {
+  if (!report.value || report.value.month !== selectedMonth.value || loading.value) return
+
+  exporting.value = true
+  try {
+    const { downloadMonthlyReportExcel } = await import('../utils/monthlyReportExcel')
+    await downloadMonthlyReportExcel(report.value, {
+      monthlySummary: t('common.monthlySummary'),
+      reportPeriod: t('common.reportPeriod'),
+      totalAmount: t('common.totalAmount'),
+      records: t('common.records'),
+      averageDaily: t('common.averageDaily'),
+      categoryBreakdown: t('common.categoryBreakdown'),
+      category: t('common.category'),
+      categoryChinese: t('common.categoryChinese'),
+      categoryEnglish: t('common.categoryEnglish'),
+      itemCount: t('common.itemCount'),
+      dailyTrend: t('common.dailyTrend'),
+      date: t('common.date'),
+      purchaseDetails: t('common.purchaseDetails'),
+      itemNameChinese: t('common.itemNameChinese'),
+      itemNameEnglish: t('common.itemNameEnglish'),
+      quantity: t('common.quantity'),
+      unit: t('common.unit'),
+      unitPrice: t('common.unitPrice'),
+      note: t('common.note')
+    })
+    ElMessage.success(t('common.exportSuccess'))
+  } catch (error) {
+    console.error('匯出月度報表失敗:', error)
+    ElMessage.error(t('common.exportError'))
+  } finally {
+    exporting.value = false
+  }
 }
 
 onMounted(fetchReport)
@@ -49,6 +88,16 @@ onMounted(fetchReport)
             value-format="YYYY-MM"
             @change="handleMonthChange"
           />
+        </el-form-item>
+        <el-form-item>
+          <el-button
+            type="primary"
+            :loading="exporting"
+            :disabled="!report || report.month !== selectedMonth || loading"
+            @click="handleExport"
+          >
+            {{ t('common.exportExcel') }}
+          </el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -104,6 +153,11 @@ onMounted(fetchReport)
           </el-table-column>
         </el-table>
       </el-card>
+
+      <ReportPurchaseDetails
+        :rows="report.purchaseDetails"
+        style="margin-top: 20px"
+      />
     </template>
   </div>
 </template>

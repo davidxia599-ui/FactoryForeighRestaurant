@@ -43,6 +43,30 @@ router.get('/monthly', requirePermission('reports'), async (req: AuthRequest, re
       { tenantId, startDate, endDate }
     )
 
+    const purchaseDetails = await query<{
+      purchase_date: string
+      category_name_zh: string | null
+      category_name_en: string | null
+      item_name_zh: string
+      item_name_en: string
+      quantity: number
+      unit: string | null
+      unit_price: number
+      total_price: number
+      note: string | null
+    }>(
+      `SELECT CAST(p.purchase_date AS DATE) AS purchase_date,
+              c.name_zh AS category_name_zh, c.name_en AS category_name_en,
+              i.name_zh AS item_name_zh, i.name_en AS item_name_en,
+              p.quantity, i.unit, p.unit_price, p.total_price, p.note
+       FROM purchases p
+       JOIN items i ON p.item_id = i.id
+       LEFT JOIN categories c ON i.category_id = c.id
+       WHERE p.tenant_id = @tenantId AND p.purchase_date BETWEEN @startDate AND @endDate
+       ORDER BY p.purchase_date, p.created_at, p.id`,
+      { tenantId, startDate, endDate }
+    )
+
     const summary = await query<{ total_amount: number; total_records: number; avg_daily: number }>(
       `SELECT COALESCE(SUM(total_price), 0) AS total_amount,
               COUNT(*) AS total_records,
@@ -59,7 +83,8 @@ router.get('/monthly', requirePermission('reports'), async (req: AuthRequest, re
       month,
       summary: summary[0] || { total_amount: 0, total_records: 0, avg_daily: 0 },
       dailyStats,
-      categoryStats
+      categoryStats,
+      purchaseDetails
     })
   } catch (error) {
     console.error('取得月度報表錯誤:', error)

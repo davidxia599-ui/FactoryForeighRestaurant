@@ -84,6 +84,18 @@ export interface MonthlyReport {
     total_amount: number
     item_count: number
   }>
+  purchaseDetails: Array<{
+    purchase_date: string
+    category_name_zh: string | null
+    category_name_en: string | null
+    item_name_zh: string
+    item_name_en: string
+    quantity: number
+    unit: string | null
+    unit_price: number
+    total_price: number
+    note: string | null
+  }>
 }
 
 export interface CategoryStat {
